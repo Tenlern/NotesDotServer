@@ -1,0 +1,40 @@
+version: "2.4"
+name: "elk-stack"
+services:
+  elasticsearch:
+    container_name: es-container
+    image: elasticsearch:${STACK_VERSION}
+    mem_limit: ${MEM_LIMIT}
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "${ES_PORT}:9200"
+    environment:
+      - xpack.security.enabled=false
+      - "discovery.type=single-node"
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - "ES_JAVA_OPTS=-Xms512m -Xmx1g"
+    networks:
+      - es-net
+  kibana:
+    container_name: kibana-container
+    image: kibana:${STACK_VERSION}
+    ports:
+      - "${KIBANA_PORT}:5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://es-container:${ES_PORT}
+    mem_limit: ${MEM_LIMIT}
+    volumes:
+      - kibana_data:/usr/share/kibana/data
+    depends_on:
+      - elasticsearch
+    networks:
+      - es-net
+volumes:
+  elasticsearch_data:
+    driver: local
+  kibana_data:
+    driver: local
+networks:
+  es-net:
+    driver: bridge
