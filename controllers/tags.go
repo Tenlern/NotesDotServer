@@ -24,7 +24,7 @@ func StoreTags(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusAccepted, gin.H{})
+	ctx.JSON(http.StatusOK, gin.H{"data": request})
 }
 
 func UpdateTags(ctx *gin.Context) {

@@ -49,7 +49,7 @@ func main() {
 			var e map[string]interface{}
 
 			if err := json.NewDecoder(res.Body).Decode(&e); err != nil {
-				ctx.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Error parsing the response body: %w", err)})
+				ctx.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("Error parsing the response body: %s", err)})
 			} else {
 				// Print the response status and error information.
 				ctx.JSON(res.StatusCode, gin.H{
@@ -59,15 +59,6 @@ func main() {
 				return
 			}
 		}
-
-		tagsRoutes := r.Group("/tags")
-		{
-			tagsRoutes.GET("/", controllers.IndexTags)
-			tagsRoutes.GET("/", controllers.StoreTags)
-			tagsRoutes.GET("/", controllers.UpdateTags)
-			tagsRoutes.GET("/", controllers.DeleteTags)
-		}
-
 		var r map[string]interface{}
 		if err := json.NewDecoder(res.Body).Decode(&r); err != nil {
 			log.Fatalf("Error parsing the response body: %s", err)
@@ -75,6 +66,21 @@ func main() {
 		// Print the response status, number of results, and request duration.
 		ctx.JSON(res.StatusCode, gin.H{"data": r})
 	})
+
+	tagRoutes := r.Group("/tags")
+	{
+		tagRoutes.GET("/", controllers.IndexTags)
+		tagRoutes.POST("/", controllers.StoreTags)
+		tagRoutes.PUT("/:id", controllers.UpdateTags)
+		tagRoutes.DELETE("/:id", controllers.DeleteTags)
+	}
+	noteRoutes := r.Group("/notes")
+	{
+		noteRoutes.GET("/", controllers.IndexNotes)
+		noteRoutes.POST("/", controllers.StoreNotes)
+		noteRoutes.PUT("/:id", controllers.UpdateNotes)
+		noteRoutes.DELETE("/:id", controllers.DeleteNotes)
+	}
 
 	r.Run()
 }
