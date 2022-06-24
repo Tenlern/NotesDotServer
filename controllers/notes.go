@@ -18,6 +18,10 @@ type storeNoteRequest struct {
 	Text string `json:"text" binding:"required"`
 }
 
+type updateNoteRequest struct {
+	Text string `json:"text"`
+}
+
 func IndexNotes(ctx *gin.Context) {
 	ctx.JSON(http.StatusAccepted, gin.H{})
 }
@@ -68,19 +72,65 @@ func StoreNotes(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"error": err.Error()})
 		return
 	}
-	// Print the response status, number of results, and request duration.
-	ctx.JSON(http.StatusAccepted, gin.H{"data": r})
 
-	// ctx.JSON(http.StatusAccepted, gin.H{"data": req})
+	ctx.JSON(resp.StatusCode, gin.H{"data": r})
 }
 
 func UpdateNotes(ctx *gin.Context) {
-	ctx.JSON(http.StatusAccepted, gin.H{})
+	var request updateNoteRequest
+	if err := ctx.ShouldBindJSON(&request); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	note := models.Note{}
+	if request.Text != "" {
+		note.Text = request.Text
+		note.HTML = string(markdown.ToHTML([]byte(request.Text), nil, nil))
+	}
+
+	body, err := json.Marshal(note)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	es, err := elasticsearch.NewDefaultClient()
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	req := esapi.IndexRequest{
+		Index:      "notes",
+		DocumentID: ctx.Param("id"),
+		Body:       strings.NewReader(string(body)),
+	}
+
+	resp, err := req.Do(context.Background(), es)
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	var r map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+		ctx.JSON(http.StatusOK, gin.H{"error": err.Error()})
+		return
+	}
+
+	ctx.JSON(resp.StatusCode, gin.H{"data": r})
 }
 
 func DeleteNotes(ctx *gin.Context) {
-	ctx.JSON()
-
 	es, err := elasticsearch.NewDefaultClient()
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
@@ -91,7 +141,7 @@ func DeleteNotes(ctx *gin.Context) {
 
 	req := esapi.DeleteRequest{
 		Index:      "notes",
-		DocumentID: ctx.Query("id"),
+		DocumentID: ctx.Param("id"),
 	}
 	resp, err := req.Do(context.Background(), es)
 	if err != nil {
@@ -109,7 +159,8 @@ func DeleteNotes(ctx *gin.Context) {
 		return
 	}
 	// Print the response status, number of results, and request duration.
-	ctx.JSON(http.StatusOK, gin.H{
+
+	ctx.JSON(resp.StatusCode, gin.H{
 		"data": r,
 	})
 }
