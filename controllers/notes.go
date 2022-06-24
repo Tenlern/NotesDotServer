@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/elastic/go-elasticsearch/v8"
 	"github.com/elastic/go-elasticsearch/v8/esapi"
 	"github.com/gin-gonic/gin"
 	"github.com/gomarkdown/markdown"
@@ -14,20 +13,12 @@ import (
 	"iex/notesdot/models"
 )
 
-type storeNoteRequest struct {
-	Text string `json:"text" binding:"required"`
-}
-
-type updateNoteRequest struct {
-	Text string `json:"text"`
-}
-
 func IndexNotes(ctx *gin.Context) {
 	ctx.JSON(http.StatusAccepted, gin.H{})
 }
 
 func StoreNotes(ctx *gin.Context) {
-	var request storeNoteRequest
+	var request models.Note
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
@@ -47,25 +38,19 @@ func StoreNotes(ctx *gin.Context) {
 		return
 	}
 
-	es, err := elasticsearch.NewDefaultClient()
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-
 	req := esapi.IndexRequest{
 		Index: "notes",
 		Body:  strings.NewReader(string(body)),
 	}
-	resp, err := req.Do(context.Background(), es)
+
+	resp, err := req.Do(context.Background(), models.ES)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
 		return
 	}
+	defer resp.Body.Close()
 
 	var r map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
@@ -77,7 +62,7 @@ func StoreNotes(ctx *gin.Context) {
 }
 
 func UpdateNotes(ctx *gin.Context) {
-	var request updateNoteRequest
+	var request models.Note
 	if err := ctx.ShouldBindJSON(&request); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
@@ -99,27 +84,20 @@ func UpdateNotes(ctx *gin.Context) {
 		return
 	}
 
-	es, err := elasticsearch.NewDefaultClient()
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-
 	req := esapi.IndexRequest{
 		Index:      "notes",
 		DocumentID: ctx.Param("id"),
 		Body:       strings.NewReader(string(body)),
 	}
 
-	resp, err := req.Do(context.Background(), es)
+	resp, err := req.Do(context.Background(), models.ES)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
 		return
 	}
+	defer resp.Body.Close()
 
 	var r map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
@@ -131,25 +109,19 @@ func UpdateNotes(ctx *gin.Context) {
 }
 
 func DeleteNotes(ctx *gin.Context) {
-	es, err := elasticsearch.NewDefaultClient()
-	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
-		return
-	}
-
 	req := esapi.DeleteRequest{
 		Index:      "notes",
 		DocumentID: ctx.Param("id"),
 	}
-	resp, err := req.Do(context.Background(), es)
+
+	resp, err := req.Do(context.Background(), models.ES)
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"error": err.Error(),
 		})
 		return
 	}
+	defer resp.Body.Close()
 
 	var r map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
